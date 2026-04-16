@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<!--
+DΛRØØ DiagramPull v1.0
+
+Designed & Engineered by Ken Odaro
+
+A focused tool for diagram extraction from PDF Document.
+Built from real classroom needs — speed, clarity, control.
+
+© DΛRØØ
+-->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DΛRØØ DiagramPull</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #f5f2ee;
+    --surface: #ffffff;
+    --surface2: #ede9e3;
+    --border: #ddd8d0;
+    --ink: #1a1814;
+    --ink2: #6b6560;
+    --accent: #c84b2f;
+    --accent2: #2f7fc8;
+    --success: #2a7a4f;
+    --success-bg: #e8f5ee;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* Textured background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* Header */
+  header {
+    padding: 44px 0 36px;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 40px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .logo {
+    width: 52px; height: 52px;
+    background: var(--accent);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+
+  .logo svg { width: 28px; height: 28px; }
+
+  .header-text h1 {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+
+  .header-text h1 span { color: var(--accent); }
+
+  .header-text p {
+    font-size: 13px;
+    color: var(--ink2);
+    margin-top: 5px;
+    font-weight: 400;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2.5px dashed var(--border);
+    border-radius: 16px;
+    padding: 52px 32px;
+    text-align: center;
+    cursor: pointer;
+    background: var(--surface);
+    transition: all 0.2s;
+    box-shadow: var(--shadow);
+    margin-bottom: 28px;
+  }
+
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--accent);
+    background: #fdf6f4;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .upload-icon {
+    font-size: 44px;
+    margin-bottom: 14px;
+    display: block;
+  }
+
+  .upload-zone h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .upload-zone p {
+    font-size: 13px;
+    color: var(--ink2);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  input[type=file] { display: none; }
+
+  /* Settings row */
+  .settings-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+
+  .setting {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    flex: 1;
+    min-width: 160px;
+    box-shadow: var(--shadow);
+  }
+
+  .setting label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink2);
+    margin-bottom: 6px;
+  }
+
+  .setting select, .setting input[type=range] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink);
+    outline: none;
+    cursor: pointer;
+  }
+
+  .setting input[type=range] {
+    padding: 4px 0;
+    accent-color: var(--accent);
+  }
+
+  .range-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 500;
+    margin-top: 4px;
+  }
+
+  /* Run button */
+  .btn-run {
+    width: 100%;
+    padding: 18px;
+    background: var(--ink);
+    color: var(--bg);
+    border: none;
+    border-radius: 12px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 3px 3px 0 var(--accent);
+  }
+
+  .btn-run:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--accent); }
+  .btn-run:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--accent); }
+  .btn-run:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: 3px 3px 0 var(--border); }
+
+  /* Progress */
+  .progress-area {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+    display: none;
+    box-shadow: var(--shadow);
+  }
+
+  .progress-area.visible { display: block; }
+
+  .progress-status {
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--ink2);
+    margin-bottom: 10px;
+  }
+
+  .progress-track {
+    background: var(--surface2);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+
+  /* File queue */
+  .file-queue {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .file-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    box-shadow: var(--shadow);
+  }
+
+  .file-chip .chip-icon { font-size: 16px; }
+  .file-chip .chip-name { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-chip .chip-size { color: var(--ink2); font-size: 10px; }
+  .file-chip .chip-remove {
+    color: var(--ink2);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    margin-left: 4px;
+    transition: color 0.15s;
+  }
+  .file-chip .chip-remove:hover { color: var(--accent); }
+
+  /* Results */
+  .results-section { margin-top: 8px; }
+  
+
+  .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .results-title {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+  }
+
+  .results-title span {
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--success-bg);
+    color: var(--success);
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-left: 8px;
+  }
+
+  .btn-dl-all {
+    padding: 11px 22px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 9px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .btn-dl-all:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 rgba(0,0,0,0.2); }
+
+  /* PDF section group */
+  .pdf-group {
+    margin-bottom: 36px;
+  }
+
+  .pdf-group-title {
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    color: var(--ink2);
+    background: var(--surface2);
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+  }
+
+  /* Image grid */
+  .img-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+
+  .img-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: all 0.2s;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .img-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--accent);
+  }
+
+  .img-preview {
+    width: 100%;
+    height: 150px;
+    object-fit: contain;
+    background: var(--surface2);
+    display: block;
+    padding: 8px;
+  }
+
+  .img-card-body {
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .img-card-name {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--ink2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 8px;
+  }
+
+  .img-meta {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .meta-pill {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: var(--surface2);
+    color: var(--ink2);
+    border: 1px solid var(--border);
+  }
+
+  .btn-dl {
+    width: 100%;
+    padding: 7px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+
+  .btn-dl:hover { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* Empty state */
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--ink2);
+  }
+
+  .empty .empty-icon { font-size: 48px; margin-bottom: 12px; display: block; }
+  .empty p { font-size: 14px; }
+
+  /* No images found */
+  .no-images {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    font-size: 13px;
+    color: var(--ink2);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  hr.divider {
+    border: none;
+    border-top: 1.5px solid var(--border);
+    margin: 36px 0;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+        <rect x="8" y="12" width="8" height="6" rx="1"/>
+        <line x1="8" y1="10" x2="16" y2="10"/>
+      </svg>
+    </div>
+    <div class="header-text">
+      <h1>DΛRØØ <span>Pull</span></h1>
+      <p>Drop PDFs with Diagrams and extract every diagram as PNG or JPEG, instantly</p>
+    </div>
+  </header>
+
+  <!-- Upload -->
+  <div class="upload-zone" id="drop-zone" onclick="document.getElementById('pdf-input').click()">
+    <span class="upload-icon">📄</span>
+    <h2>Drop PDF files here</h2>
+    <p>or click to browse &nbsp;·&nbsp; multiple files supported</p>
+  </div>
+  <input type="file" id="pdf-input" multiple accept=".pdf,application/pdf">
+
+  <!-- File queue -->
+  <div class="file-queue" id="file-queue"></div>
+
+  <!-- Settings -->
+  <div class="settings-row">
+    <div class="setting">
+      <label>Output format</label>
+      <select id="fmt">
+        <option value="png">PNG (lossless)</option>
+        <option value="jpeg">JPEG (smaller size)</option>
+      </select>
+    </div>
+    <div class="setting">
+      <label>Render quality</label>
+      <input type="range" id="scale" min="1" max="3" step="0.5" value="3"
+        oninput="document.getElementById('scale-val').textContent = this.value + '×'">
+      <div class="range-val" id="scale-val">2×</div>
+    </div>
+    <div class="setting">
+      <label>Min image size (px)</label>
+      <input type="range" id="min-size" min="20" max="200" step="10" value="120"
+        oninput="document.getElementById('size-val').textContent = this.value + 'px'">
+      <div class="range-val" id="size-val">60px</div>
+    </div>
+    <div class="setting">
+      <label>Extraction mode</label>
+      <select id="mode">
+        <option value="embedded">Embedded images only</option>
+        <option value="region">Smart region detection</option>
+        <option value="fullpage">Full page renders</option>
+      </select>
+    </div>
+  </div>
+
+  <button class="btn-run" id="btn-run" disabled onclick="runExtraction()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="5,3 19,12 5,21"/>
+    </svg>
+    Extract Diagrams
+  </button>
+
+  <!-- Progress -->
+  <div class="progress-area" id="progress-area">
+    <div class="progress-status" id="progress-status">Starting…</div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <!-- Results -->
+  <div id="results"></div>
+  <div id="crop-queue" style="margin-top:20px;"></div>
+
+</div>
+
+<script>
+
+
+// cropper for the new upgrade to crop the phtot after they have been converted
+
+
+let cropper = null;
+let currentFilename = '';
+let cropQueue = [];
+
+function openCrop(dataUrl, filename) {
+  const modal = document.getElementById('crop-modal');
+  const img = document.getElementById('crop-image');
+
+  img.src = dataUrl;
+  modal.style.display = 'flex';
+  currentFilename = filename;
+
+  setTimeout(() => {
+    cropper = new Cropper(img, {
+      viewMode: 1,
+      autoCropArea: 0.5
+    });
+  }, 100);
+}
+function downloadCropQueue() {
+  if (cropQueue.length === 0) {
+    alert("No crops selected.");
+    return;
+  }
+
+  const zip = new JSZip();
+
+  cropQueue.forEach((img) => {
+    const base64Data = img.dataUrl.split(',')[1];
+    zip.file(img.filename + '.png', base64Data, { base64: true });
+  });
+
+  zip.generateAsync({ type: "blob" }).then(function(content) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(content);
+    a.download = "diagram_crops.zip";
+    a.click();
+  });
+}
+
+function updateQueueUI() {
+  const el = document.getElementById('crop-queue');
+  if (!el) return;
+
+  el.innerHTML = `
+    <div style="margin-bottom:10px; font-weight:600;">
+      Crops Selected (${cropQueue.length})
+    </div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      ${cropQueue.map((c) => `
+        <img src="${c.dataUrl}" style="width:80px; height:80px; object-fit:cover; border-radius:6px;">
+      `).join('')}
+    </div>
+  `;
+}
+
+function closeCrop() {
+  document.getElementById('crop-modal').style.display = 'none';
+  if (cropper) {
+    cropper.destroy();
+    cropper = null;
+  }
+}
+
+function saveCrop() {
+  if (!cropper) return;
+
+  const canvas = cropper.getCroppedCanvas();
+
+  const dataUrl = canvas.toDataURL('image/png');
+
+cropQueue.push({
+  dataUrl,
+  filename: 'cropped_' + currentFilename + '_' + Date.now()
+});
+
+updateQueueUI();
+
+closeCrop();
+}
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ── State ────────────────────────────────────────────────────
+let pdfFiles = [];   // {file, name}
+let allExtracted = []; // {pdfName, page, idx, dataUrl, w, h, ext}
+
+// ── Drop / file input ────────────────────────────────────────
+const dropZone  = document.getElementById('drop-zone');
+const pdfInput  = document.getElementById('pdf-input');
+
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  addFiles(Array.from(e.dataTransfer.files));
+});
+pdfInput.addEventListener('change', e => addFiles(Array.from(e.target.files)));
+
+function addFiles(files) {
+  const pdfs = files.filter(f => f.type === 'application/pdf' || f.name.endsWith('.pdf'));
+  pdfs.forEach(f => {
+    if (!pdfFiles.find(p => p.name === f.name && p.file.size === f.size))
+      pdfFiles.push({ file: f, name: f.name });
+  });
+  renderQueue();
+}
+
+function removeFile(idx) {
+  pdfFiles.splice(idx, 1);
+  renderQueue();
+}
+
+function renderQueue() {
+  const el = document.getElementById('file-queue');
+  el.innerHTML = pdfFiles.map((p, i) => `
+    <div class="file-chip">
+      <span class="chip-icon">📄</span>
+      <span class="chip-name">${p.name}</span>
+      <span class="chip-size">${(p.file.size/1024).toFixed(0)}KB</span>
+      <span class="chip-remove" onclick="removeFile(${i})">✕</span>
+    </div>`).join('');
+  document.getElementById('btn-run').disabled = pdfFiles.length === 0;
+}
+
+// ── Extraction ───────────────────────────────────────────────
+async function runExtraction() {
+  allExtracted = [];
+  const btn = document.getElementById('btn-run');
+  btn.disabled = true;
+
+  const fmt      = document.getElementById('fmt').value;
+  const scale    = parseFloat(document.getElementById('scale').value);
+  const minSize  = parseInt(document.getElementById('min-size').value);
+  const mode     = document.getElementById('mode').value;
+
+  const progArea   = document.getElementById('progress-area');
+  const progFill   = document.getElementById('progress-fill');
+  const progStatus = document.getElementById('progress-status');
+  progArea.classList.add('visible');
+
+  const totalFiles = pdfFiles.length;
+  let filesDone = 0;
+
+  const resultsByPDF = {};
+
+  for (const pdfEntry of pdfFiles) {
+    progStatus.textContent = `Loading ${pdfEntry.name}…`;
+    progFill.style.width = Math.round((filesDone / totalFiles) * 100) + '%';
+
+    try {
+      const arrayBuf = await pdfEntry.file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+      const numPages = pdf.numPages;
+      const extracted = [];
+
+      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+        progStatus.textContent = `${pdfEntry.name} — page ${pageNum}/${numPages}`;
+        const pct = Math.round(((filesDone + pageNum / numPages) / totalFiles) * 100);
+        progFill.style.width = pct + '%';
+
+        const page = await pdf.getPage(pageNum);
+
+        if (mode === 'fullpage') {
+          const img = await renderPageToImage(page, scale, fmt);
+          extracted.push({ pdfName: pdfEntry.name, page: pageNum, idx: 1, ...img });
+        } else if (mode === 'embedded') {
+          const imgs = await extractEmbeddedImages(page, pageNum, pdfEntry.name, fmt, minSize);
+          extracted.push(...imgs);
+          // Fallback: render full page if no embedded found
+          if (imgs.length === 0) {
+            const img = await renderPageToImage(page, scale, fmt);
+            extracted.push({ pdfName: pdfEntry.name, page: pageNum, idx: 1, fallback: true, ...img });
+          }
+        } else {
+          // Smart region detection: render page then detect non-white regions
+          const regions = await extractRegions(page, scale, fmt, minSize, pageNum, pdfEntry.name);
+          extracted.push(...regions);
+        }
+      }
+
+      resultsByPDF[pdfEntry.name] = extracted.filter(e => !e.fallback || mode === 'embedded');
+      allExtracted.push(...resultsByPDF[pdfEntry.name]);
+    } catch (err) {
+      console.error('Error processing', pdfEntry.name, err);
+    }
+
+    filesDone++;
+  }
+
+  progFill.style.width = '100%';
+  progStatus.textContent = `Done! Extracted ${allExtracted.length} image${allExtracted.length !== 1 ? 's' : ''}.`;
+  setTimeout(() => progArea.classList.remove('visible'), 2000);
+
+  btn.disabled = false;
+  renderResults(resultsByPDF, fmt);
+}
+
+// ── Render full page as image ────────────────────────────────
+async function renderPageToImage(page, scale, fmt) {
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  canvas.width  = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  const mime = fmt === 'jpeg' ? 'image/jpeg' : 'image/png';
+  const quality = fmt === 'jpeg' ? 0.92 : undefined;
+  const dataUrl = canvas.toDataURL(mime, quality);
+  return { dataUrl, w: canvas.width, h: canvas.height, ext: fmt };
+}
+
+// ── Extract embedded images via PDF.js operator list ─────────
+async function extractEmbeddedImages(page, pageNum, pdfName, fmt, minSize) {
+  const results = [];
+  try {
+    const ops = await page.getOperatorList();
+    const fnArray  = ops.fnArray;
+    const argsArray = ops.argsArray;
+    const objs = page.objs;
+    const commonObjs = page.commonObjs;
+
+    // Collect image object names
+    const imgNames = new Set();
+    for (let i = 0; i < fnArray.length; i++) {
+      // OPS.paintImageXObject = 85, paintJpegXObject = 82, paintInlineImageXObject = 83
+      if (fnArray[i] === pdfjsLib.OPS.paintImageXObject ||
+          fnArray[i] === pdfjsLib.OPS.paintJpegXObject ||
+          fnArray[i] === pdfjsLib.OPS.paintInlineImageXObject) {
+        if (argsArray[i] && argsArray[i][0]) {
+          imgNames.add(argsArray[i][0]);
+        }
+      }
+    }
+
+    // For each image name, get the image data
+    let idx = 1;
+    for (const name of imgNames) {
+      try {
+        await new Promise((resolve) => {
+          const tryGet = () => {
+            if (objs.has(name)) {
+              const imgData = objs.get(name);
+              if (imgData && imgData.width >= minSize && imgData.height >= minSize) {
+                const dataUrl = imageDataToDataUrl(imgData, fmt);
+                if (dataUrl) {
+                  results.push({
+                    pdfName, page: pageNum, idx,
+                    dataUrl, w: imgData.width, h: imgData.height,
+                    ext: fmt
+                  });
+                  idx++;
+                }
+              }
+              resolve();
+            } else {
+              setTimeout(tryGet, 50);
+            }
+          };
+          tryGet();
+          setTimeout(resolve, 2000); // safety timeout
+        });
+      } catch (e) { /* skip */ }
+    }
+  } catch (e) { /* skip */ }
+  return results;
+}
+
+function imageDataToDataUrl(imgData, fmt) {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width  = imgData.width;
+    canvas.height = imgData.height;
+    const ctx = canvas.getContext('2d');
+    const iData = ctx.createImageData(imgData.width, imgData.height);
+
+    if (imgData.data instanceof Uint8ClampedArray && imgData.data.length === imgData.width * imgData.height * 4) {
+      iData.data.set(imgData.data);
+    } else if (imgData.data) {
+      // RGB without alpha
+      const src = imgData.data;
+      const dst = iData.data;
+      const len = imgData.width * imgData.height;
+      for (let i = 0; i < len; i++) {
+        dst[i*4]   = src[i*3]   || 0;
+        dst[i*4+1] = src[i*3+1] || 0;
+        dst[i*4+2] = src[i*3+2] || 0;
+        dst[i*4+3] = 255;
+      }
+    } else {
+      return null;
+    }
+    ctx.putImageData(iData, 0, 0);
+    const mime = fmt === 'jpeg' ? 'image/jpeg' : 'image/png';
+    return canvas.toDataURL(mime, fmt === 'jpeg' ? 0.92 : undefined);
+  } catch (e) { return null; }
+}
+
+// ── Smart region detection ────────────────────────────────────
+async function extractRegions(page, scale, fmt, minSize, pageNum, pdfName) {
+  // Render the full page
+  const viewport = page.getViewport({ scale });
+  const canvas   = document.createElement('canvas');
+  canvas.width   = viewport.width;
+  canvas.height  = viewport.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport }).promise;
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const regions   = detectNonWhiteRegions(imageData, canvas.width, canvas.height, minSize);
+
+  const results = [];
+  const mime    = fmt === 'jpeg' ? 'image/jpeg' : 'image/png';
+
+  regions.forEach((r, i) => {
+    // Crop region with padding
+    const pad = 10;
+    const x = Math.max(0, r.x - pad);
+    const y = Math.max(0, r.y - pad);
+    const w = Math.min(canvas.width  - x, r.w + pad*2);
+    const h = Math.min(canvas.height - y, r.h + pad*2);
+
+    const crop   = document.createElement('canvas');
+    crop.width   = w;
+    crop.height  = h;
+    const cCtx   = crop.getContext('2d');
+    cCtx.drawImage(canvas, x, y, w, h, 0, 0, w, h);
+    const dataUrl = crop.toDataURL(mime, fmt === 'jpeg' ? 0.92 : undefined);
+    results.push({ pdfName, page: pageNum, idx: i+1, dataUrl, w, h, ext: fmt });
+  });
+
+  // Fallback: return full page if no regions found
+  if (results.length === 0) {
+    const dataUrl = canvas.toDataURL(mime, fmt === 'jpeg' ? 0.92 : undefined);
+    results.push({ pdfName, page: pageNum, idx: 1, dataUrl, w: canvas.width, h: canvas.height, ext: fmt });
+  }
+
+  return results;
+}
+
+function detectNonWhiteRegions(imageData, W, H, minSizePx) {
+  const data = imageData.data;
+  const threshold = 200; // pixels darker than this are "content"
+  
+  // Build binary mask of content pixels
+  const mask = new Uint8Array(W * H);
+
+for (let i = 0; i < W * H - 1; i++) {
+  const r1 = data[i*4], g1 = data[i*4+1], b1 = data[i*4+2];
+  const r2 = data[(i+1)*4], g2 = data[(i+1)*4+1], b2 = data[(i+1)*4+2];
+
+  const diff =
+    Math.abs(r1 - r2) +
+    Math.abs(g1 - g2) +
+    Math.abs(b1 - b2);
+
+  // Only keep strong edges (diagrams, not text)
+  mask[i] = diff > 60 ? 1 : 0;
+}
+
+  // Simple connected-component-like bounding box scan
+  // Divide page into horizontal bands and look for dense content blocks
+  const blockH = 40, blockW = 40;
+  const regions = [];
+
+  // Scan for rectangular clusters
+  let inRegion = false;
+  let regionStart = 0;
+  let regionMinX = W, regionMaxX = 0;
+
+  for (let row = 0; row < H; row += 4) {
+    let rowHasContent = false;
+    let minX = W, maxX = 0;
+    for (let col = 0; col < W; col++) {
+      if (mask[row * W + col]) {
+        rowHasContent = true;
+        if (col < minX) minX = col;
+        if (col > maxX) maxX = col;
+      }
+    }
+
+    if (rowHasContent) {
+      if (!inRegion) { inRegion = true; regionStart = row; regionMinX = W; regionMaxX = 0; }
+      if (minX < regionMinX) regionMinX = minX;
+      if (maxX > regionMaxX) regionMaxX = maxX;
+    } else if (inRegion) {
+      const rw = regionMaxX - regionMinX;
+      const rh = row - regionStart;
+      if (rw >= minSizePx && rh >= minSizePx) {
+        // Check if this region has significant image content (not just text lines)
+        const density = getPixelDensity(mask, regionMinX, regionStart, rw, rh, W);
+
+// Basic filter
+if (density > 0.05) {
+
+  const aspectRatio = rw / rh;
+
+  // 🚫 Reject text-like regions (long horizontal strips)
+  if (aspectRatio > 2.5) continue;
+
+  // 🚫 Reject thin rows (text lines)
+  if (rh < 120) continue;
+
+  // 🚫 Reject full-width question blocks
+  if (rw > W * 0.9) continue;
+
+  regions.push({ x: regionMinX, y: regionStart, w: rw, h: rh });
+}
+      }
+      inRegion = false;
+    }
+  }
+
+  return mergeOverlapping(regions, 20);
+}
+
+function getPixelDensity(mask, x, y, w, h, W) {
+  if (w <= 0 || h <= 0) return 0;
+  let count = 0;
+  const total = w * h;
+  for (let row = y; row < y + h; row++) {
+    for (let col = x; col < x + w; col++) {
+      if (mask[row * W + col]) count++;
+    }
+  }
+  return count / total;
+}
+
+function mergeOverlapping(rects, gap) {
+  if (!rects.length) return rects;
+  const merged = [];
+  const used = new Array(rects.length).fill(false);
+  for (let i = 0; i < rects.length; i++) {
+    if (used[i]) continue;
+    let r = { ...rects[i] };
+    for (let j = i+1; j < rects.length; j++) {
+      if (used[j]) continue;
+      const s = rects[j];
+      if (r.x - gap < s.x + s.w && r.x + r.w + gap > s.x &&
+          r.y - gap < s.y + s.h && r.y + r.h + gap > s.y) {
+        const nx = Math.min(r.x, s.x);
+        const ny = Math.min(r.y, s.y);
+        r = { x: nx, y: ny, w: Math.max(r.x+r.w, s.x+s.w)-nx, h: Math.max(r.y+r.h, s.y+s.h)-ny };
+        used[j] = true;
+      }
+    }
+    merged.push(r);
+  }
+  return merged;
+}
+
+// ── Render results ────────────────────────────────────────────
+function renderResults(resultsByPDF, fmt) {
+  const el = document.getElementById('results');
+  const total = allExtracted.length;
+
+  if (total === 0) {
+    el.innerHTML = `
+      <hr class="divider">
+      <div class="empty">
+        <span class="empty-icon">🔍</span>
+        <p>No images found. Try switching to <strong>Smart region detection</strong> or <strong>Full page renders</strong> mode.</p>
+      </div>`;
+    return;
+  }
+
+  html = `
+  <hr class="divider">
+  <div class="results-header">
+    <div class="results-title">Extracted Images <span>${total} found</span></div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn-dl-all" onclick="downloadAll()">⬇ Download All</button>
+      <button class="btn-dl-all" onclick="downloadCropQueue()">✂ Export Crops</button>
+    </div>
+  </div>`;
+
+  for (const [pdfName, images] of Object.entries(resultsByPDF)) {
+    if (!images.length) continue;
+    html += `<div class="pdf-group">
+      <div class="pdf-group-title">📄 ${pdfName} — ${images.length} image${images.length>1?'s':''}</div>`;
+
+    if (images.length === 0) {
+      html += `<div class="no-images">No diagrams found in this file.</div>`;
+    } else {
+      html += `<div class="img-grid">`;
+      images.forEach((img, i) => {
+        const fname = buildFilename(pdfName, img.page, img.idx, fmt);
+        html += `
+          <div class="img-card">
+            <img class="img-preview" src="${img.dataUrl}" alt="${fname}">
+            <div class="img-card-body">
+              <div class="img-card-name">${fname}</div>
+              <div class="img-meta">
+                <span class="meta-pill">p.${img.page}</span>
+                <span class="meta-pill">${img.w}×${img.h}</span>
+                <span class="meta-pill">.${fmt}</span>
+              </div>
+              <div style="display:flex; gap:6px;">
+  <button class="btn-dl" onclick="downloadOne('${escapeForAttr(img.dataUrl)}','${fname}')">⬇ Save</button>
+  <button class="btn-dl" onclick="openCrop('${escapeForAttr(img.dataUrl)}','${fname}')">✂ Crop</button>
+</div>
+            </div>
+          </div>`;
+      });
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function buildFilename(pdfName, page, idx, fmt) {
+  const base = pdfName.replace(/\.pdf$/i, '').replace(/[^a-zA-Z0-9_\-]/g, '_');
+  return `${base}_p${String(page).padStart(2,'0')}_img${String(idx).padStart(2,'0')}.${fmt}`;
+}
+
+function escapeForAttr(s) {
+  // dataUrls are safe — just return as is (inline onclick)
+  return s;
+}
+
+function downloadOne(dataUrl, filename) {
+  const a = document.createElement('a');
+  a.href     = dataUrl;
+  a.download = filename;
+  a.click();
+}
+
+function downloadAll() {
+  const fmt = document.getElementById('fmt').value;
+  allExtracted.forEach((img, i) => {
+    const fname = buildFilename(img.pdfName, img.page, img.idx, fmt);
+    setTimeout(() => downloadOne(img.dataUrl, fname), i * 150);
+  });
+}
+</script>
+<div id="crop-modal" style="
+  position:fixed; inset:0;
+  background:rgba(0,0,0,0.85);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+">
+  <div style="background:#fff; padding:20px; border-radius:12px; max-width:90%; max-height:90%;">
+    <img id="crop-image" style="max-width:100%; max-height:70vh;">
+    <div style="margin-top:10px; display:flex; gap:10px;">
+      <button onclick="saveCrop()">💾 Save Crop</button>
+      <button onclick="closeCrop()">✖ Cancel</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
